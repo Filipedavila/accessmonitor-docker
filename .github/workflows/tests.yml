@@ -1,0 +1,56 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main,  develop ]
+  pull_request:
+    branches: [ main,  develop ]
+
+jobs:
+  test-pipeline:
+    name: Run Verification Suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22 
+          cache: 'npm'   
+
+      - name: Install System Dependencies for Puppeteer
+
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            wget \
+            gnupg \
+            libatk1.0-0 \
+            libatk-bridge2.0-0t64 \
+            libgdk-pixbuf2.0-0 \
+            libgtk-3-0t64 \
+            libgbm-dev \
+            libnss3 \
+            libxss1 \
+            libasound2t64 \
+            libxtst6 \
+            xauth \
+            xvfb
+
+      - name: Clean Install Dependencies
+
+        run: npm ci
+
+      - name: Verify Build
+        run: npm run build
+
+      - name: Execute Unit Tests
+        run: npm run test
+
+      - name: Execute E2E Tests
+        run: npm run test:e2e
+        env:
+          NODE_ENV: test
