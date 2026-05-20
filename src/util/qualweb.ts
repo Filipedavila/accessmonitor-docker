@@ -5,10 +5,7 @@ import { BestPractices } from '@qualweb/best-practices';
 import { Counter } from '@qualweb/counter';
 
 export async function evaluate(params: any): Promise<any> {
-  console.log(
-    'Iniciando avaliação com QualWeb... for params:',
-    JSON.stringify(params),
-  );
+
   const qualweb = new QualWeb({ adBlock: true, stealth: true });
 
   try {
