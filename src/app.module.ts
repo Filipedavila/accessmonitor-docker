@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CoreModule } from './core/core.module';
 import { AmpModule } from './amp/amp.module';
 import { RateLimiterGuard } from 'nestjs-rate-limiter/dist/rate-limiter.guard';
 import { APP_GUARD } from '@nestjs/core/constants';
@@ -14,6 +15,7 @@ import DailyRotateFile from 'winston-daily-rotate-file';
 @Module({
   imports: [
     ConfigAppModule,
+    CoreModule,
     AmpModule,
     RateLimiterModule.register({
       points: 1000,
