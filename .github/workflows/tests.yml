@@ -1,4 +1,4 @@
-name: CI Pipeline
+name: CI Unit & E2E Tests
 
 on:
   push:
@@ -42,7 +42,7 @@ jobs:
 
       - name: Clean Install Dependencies
 
-        run: npm ci
+        run: npm ci --include=dev
 
       - name: Verify Build
         run: npm run build
