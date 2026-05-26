@@ -1,9 +1,8 @@
-import { Module } from "@nestjs/common";
-import { HealthModule } from "./health/heath.module";
+import { Module,Logger } from "@nestjs/common";
+import { HealthModule } from "./health/health.module";
 import { GlobalExceptionFilter } from "./filters/all-exceptions.filter";
 import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
 import { ResponseTransformInterceptor } from "./interceptors/response.interceptor";
-
 
 const modules = [
 
@@ -15,6 +14,7 @@ const modules = [
   imports: modules,
   exports: modules,
   providers: [
+    Logger,
     {
       provide: APP_FILTER,
       useClass: GlobalExceptionFilter, 
