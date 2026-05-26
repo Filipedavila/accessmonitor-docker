@@ -5,6 +5,7 @@ import {
   Param,
   Request,
   HttpCode,
+  ForbiddenException,
 } from '@nestjs/common';
 
 import { RateLimit } from 'nestjs-rate-limiter';
@@ -33,7 +34,7 @@ export class AmpController implements AmpContract {
   ): Promise<any> {
     if (process.env.REFERER) {
       if (!req.headers.referer?.startsWith(process.env.REFERER)) {
-        return { status: 403, message: 'Forbidden' };
+        throw new ForbiddenException('Forbidden');
       }
     }
     return await this.ampService.evaluateUrl(params.url);
@@ -51,7 +52,7 @@ export class AmpController implements AmpContract {
   async evaluateHtml(@Request() req: any): Promise<any> {
     if (process.env.REFERER) {
       if (!req.headers.referer?.startsWith(process.env.REFERER)) {
-        return { status: 403, message: 'Forbidden' };
+        throw new ForbiddenException('Forbidden' };
       }
     }
     return await this.ampService.evaluateHtml(req.body.html);

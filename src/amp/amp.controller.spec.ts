@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AmpController } from './amp.controller';
 import { AmpService } from './amp.service';
 import { UrlRequestDto } from './dto/url-request.dto';
+import { ForbiddenException } from '@nestjs/common/exceptions/forbidden.exception';
 jest.mock('@qualweb/core', () => {
   return {
     QualWeb: jest.fn().mockImplementation(() => ({
@@ -50,30 +51,31 @@ describe('AmpController', () => {
       process.env.REFERER = 'https://trusted.com';
       const mockReq = { headers: { referer: 'https://attacker.com' } };
 
-      const result = await controller.evaluateUrl(mockReq, mockParams);
-
-      expect(result).toEqual({ status: 403, message: 'Forbidden' });
+      await expect(controller.evaluateUrl(mockReq, mockParams)).rejects.toThrow(ForbiddenException);
       expect(service.evaluateUrl).not.toHaveBeenCalled();
     });
 
     it('should call service.evaluateUrl if REFERER env matches', async () => {
       process.env.REFERER = 'https://trusted.com';
       const mockReq = { headers: { referer: 'https://trusted.com/dashboard' } };
+      const mockUrlDto: UrlRequestDto = { url: 'https://example.com' };
       mockAmpService.evaluateUrl.mockResolvedValue({ success: true });
 
-      const result = await controller.evaluateUrl(mockReq, mockParams);
+      const result = await controller.evaluateUrl(mockReq, mockUrlDto);
 
-      expect(service.evaluateUrl).toHaveBeenCalledWith(mockParams.url);
+      expect(service.evaluateUrl).toHaveBeenCalledWith(mockUrlDto.url);
       expect(result).toEqual({ success: true });
     });
 
     it('should call service.evaluateUrl directly if REFERER env is not configured', async () => {
       const mockReq = { headers: {} };
+      const mockUrlDto: UrlRequestDto = { url: 'https://example.com' };
+
       mockAmpService.evaluateUrl.mockResolvedValue({ success: true });
 
-      const result = await controller.evaluateUrl(mockReq, mockParams);
+      const result = await controller.evaluateUrl(mockReq, mockUrlDto);
 
-      expect(service.evaluateUrl).toHaveBeenCalledWith(mockParams.url);
+      expect(service.evaluateUrl).toHaveBeenCalledWith(mockUrlDto.url);
       expect(result).toEqual({ success: true });
     });
   });
@@ -81,16 +83,14 @@ describe('AmpController', () => {
   describe('evaluateHtml', () => {
     const mockReqBody = { body: { html: '<h1>Test</h1>' }, headers: {} };
 
-    it('should return 403 if REFERER env is set and request header does not match', async () => {
+    it('should throw ForbiddenException if REFERER env is set and request header does not match', async () => {
       process.env.REFERER = 'https://trusted.com';
       const mockReq = {
         body: { html: '<h1>Test</h1>' },
         headers: { referer: 'https://attacker.com' },
       };
 
-      const result = await controller.evaluateHtml(mockReq);
-
-      expect(result).toEqual({ status: 403, message: 'Forbidden' });
+      await expect(controller.evaluateHtml(mockReq)).rejects.toThrow(ForbiddenException);
       expect(service.evaluateHtml).not.toHaveBeenCalled();
     });
 
