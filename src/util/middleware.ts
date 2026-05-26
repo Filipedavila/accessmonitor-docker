@@ -1,6 +1,7 @@
 import * as htmlparser from 'htmlparser2';
 import * as CSSselect from 'css-select';
 import * as qualweb from './qualweb';
+import * as cheerio from 'cheerio';
 import { testColors, ruleset } from '@a12e/accessmonitor-rulesets';
 import { generateMd5Hash } from 'src/common/security';
 import { getElementsMapping } from './mapping';
@@ -254,7 +255,8 @@ function parseEvaluation(evaluation: any): any {
 
   const report: any = {};
 
-  report.pagecode = evaluation.system.page.dom.html;
+
+  report.pagecode = cleanHtml(evaluation.system.page.dom.html);
   report['data'] = {};
   report['data'].title = evaluation.system.page.dom.title;
   report['data'].rawUrl = evaluation?.system?.url?.completeUrl || '';
@@ -336,3 +338,10 @@ export async function executeHtmlEvaluation(html: string): Promise<any> {
   const reports = await qualweb.evaluate({ html });
   return parseEvaluation(reports['customHtml']);
 }
+
+  function cleanHtml(html: string): string {
+      if (!html) return '';
+      const $ = cheerio.load(html);
+      $('head script, head style').remove();
+      return $.html();
+    }
