@@ -52,7 +52,7 @@ export class AmpController implements AmpContract {
   async evaluateHtml(@Request() req: any): Promise<any> {
     if (process.env.REFERER) {
       if (!req.headers.referer?.startsWith(process.env.REFERER)) {
-        throw new ForbiddenException('Forbidden' };
+        throw new ForbiddenException('Forbidden');
       }
     }
     return await this.ampService.evaluateHtml(req.body.html);

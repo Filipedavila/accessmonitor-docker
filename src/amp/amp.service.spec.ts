@@ -1,32 +1,31 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AmpService } from './amp.service';
-import { ConfigService } from '@nestjs/config/dist/config.service';
+import { ConfigService } from '@nestjs/config';
 import {
   executeUrlEvaluation,
   executeHtmlEvaluation,
 } from 'src/util/middleware';
-import dns from 'node:dns';
+import { validateUrlRestriction } from '../common/util'; 
+import { RestrictedNetworkException } from '../common/restricted-network.exception';
+
 jest.mock('src/util/middleware', () => ({
   executeUrlEvaluation: jest.fn(),
   executeHtmlEvaluation: jest.fn(),
 }));
 
-jest.mock('node:dns', () => ({
-  lookup: jest.fn(),
+jest.mock('../common/util', () => ({
+  validateUrlRestriction: jest.fn(),
 }));
+
+const mockExecuteUrl = jest.mocked(executeUrlEvaluation);
+const mockExecuteHtml = jest.mocked(executeHtmlEvaluation);
+const mockValidateUrlRestriction = jest.mocked(validateUrlRestriction);
 
 describe('AmpService', () => {
   let service: AmpService;
-  let configService: ConfigService;
 
-  // Mocks dos utilities para asserções
-  const mockExecuteUrl = executeUrlEvaluation as jest.Mock;
-  const mockExecuteHtml = executeHtmlEvaluation as jest.Mock;
-  const mockDnsLookup = dns.lookup as unknown as jest.Mock;
-
-  // Mock do ConfigService do NestJS
   const mockConfigService = {
-    get: jest.fn().mockReturnValue('127.0.0.1,10.0.0.0/8'), // Instancia a blacklist
+    get: jest.fn().mockReturnValue('127.0.0.1,10.0.0.0/8'),
   };
 
   beforeEach(async () => {
@@ -41,8 +40,6 @@ describe('AmpService', () => {
     }).compile();
 
     service = module.get<AmpService>(AmpService);
-    configService = module.get<ConfigService>(ConfigService);
-
     jest.clearAllMocks();
   });
 
@@ -52,52 +49,30 @@ describe('AmpService', () => {
 
   describe('evaluateUrl', () => {
     const rawUrl = 'https://example.com/path';
+    const expectedBlacklist = ['127.0.0.1', '10.0.0.0/8'];
 
-    it('should return Forbidden (403) if resolved IP is in blacklist', async () => {
-      // Simula o DNS a resolver para o IP local (que está na blacklist)
-      mockDnsLookup.mockImplementation((hostname, callback) => {
-        callback(null, '127.0.0.1');
-      });
+    it('should propagate the exception if validateUrlRestriction detects a restricted network', async () => {
 
-      const result = await service.evaluateUrl(rawUrl);
+      mockValidateUrlRestriction.mockRejectedValue(new RestrictedNetworkException());
 
-      expect(result).toEqual({ status: 403, message: 'Forbidden' });
+      const promise = service.evaluateUrl(rawUrl);
+
+      await expect(promise).rejects.toThrow(RestrictedNetworkException);
+      
       expect(mockExecuteUrl).not.toHaveBeenCalled();
+      expect(mockValidateUrlRestriction).toHaveBeenCalledWith(rawUrl, expectedBlacklist);
     });
 
-    it('should call executeUrlEvaluation if resolved IP is safe', async () => {
-      // Simula o DNS a resolver para um IP público seguro
-      mockDnsLookup.mockImplementation((hostname, callback) => {
-        callback(null, '8.8.8.8');
-      });
+    it('should return evaluation report if validateUrlRestriction allows the URL', async () => {
+      mockValidateUrlRestriction.mockResolvedValue(undefined);
+
       mockExecuteUrl.mockResolvedValue({ report: 'valid_report' });
 
       const result = await service.evaluateUrl(rawUrl);
 
-      // Garante que a URL foi feito o bypass do b64 e o split do protocolo no fixUrl
-      expect(mockDnsLookup).toHaveBeenCalledWith(
-        'example.com',
-        expect.any(Function),
-      );
+      expect(mockValidateUrlRestriction).toHaveBeenCalledWith(rawUrl, expectedBlacklist);
       expect(mockExecuteUrl).toHaveBeenCalledWith(rawUrl);
       expect(result).toEqual({ report: 'valid_report' });
-    });
-
-    it('should handle  URL parameters correctly', async () => {
-      const urlWithParams = 'https://target.com/eval?q=1&v=2';
-
-      mockDnsLookup.mockImplementation((hostname, callback) => {
-        callback(null, '8.8.8.8');
-      });
-      mockExecuteUrl.mockResolvedValue({ success: true });
-
-      await service.evaluateUrl(urlWithParams);
-
-      expect(mockDnsLookup).toHaveBeenCalledWith(
-        'target.com',
-        expect.any(Function),
-      );
-      expect(mockExecuteUrl).toHaveBeenCalledWith(urlWithParams);
     });
   });
 
