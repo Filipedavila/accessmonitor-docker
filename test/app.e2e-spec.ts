@@ -54,9 +54,9 @@ describe('Amp E2E - End to End test  of Evaluations', () => {
     it('Should evaluate a URL and return the QualWeb report', async () => {
       const targetUrl = 'https://www.acessibilidade.gov.pt/';
 
-      const base64Url = Buffer.from(targetUrl).toString('base64');
+      const encodedUrl = encodeURIComponent(targetUrl);
 
-      const response = await http.get(`/amp/eval/${base64Url}`, {
+      const response = await http.get(`/amp/eval/${encodedUrl}`, {
         headers: { referer: 'http://localhost' },
       });
 
@@ -67,18 +67,19 @@ describe('Amp E2E - End to End test  of Evaluations', () => {
     it('Should return 403 if REFERER env is set and request header does not match', async () => {
  
       const targetUrl = 'https://www.acessibilidade.gov.pt/';
-      const base64Url = Buffer.from(targetUrl).toString('base64');
+      const encodedUrl = encodeURIComponent(targetUrl);
 
-      const response = await http.get(`/amp/eval/${base64Url}`, {
+      const response = await http.get(`/amp/eval/${encodedUrl}`, {
         headers: { referer: 'https://attacker.com' },
       });
 
       expect(response.status).toBe(403);
     });
     it('Should return 400 if the URL is not valid', async () => {
-      const invalidBase64 = 'not-a-valid-base64';
+      const invalidUrl = 'not-a-valid-url';
+      const encodedUrl = encodeURIComponent(invalidUrl);
 
-      const response = await http.get(`/amp/eval/${invalidBase64}`, {
+      const response = await http.get(`/amp/eval/${encodedUrl}`, {
         headers: { referer: 'http://localhost' },
       });
 
@@ -86,9 +87,9 @@ describe('Amp E2E - End to End test  of Evaluations', () => {
     });
     it('should return 400 if url is in blacklist', async () => {
       const blacklistedUrl = 'http://localhost/admin';
-      const base64Url = Buffer.from(blacklistedUrl).toString('base64');
+      const encodedUrl = encodeURIComponent(blacklistedUrl);
 
-      const response = await http.get(`/amp/eval/${base64Url}`, {
+      const response = await http.get(`/amp/eval/${encodedUrl}`, {
         headers: { referer: 'http://localhost' },
       });
 
