@@ -1,9 +1,7 @@
 import { Module } from '@nestjs/common';
 import { CoreModule } from './core/core.module';
 import { AmpModule } from './amp/amp.module';
-import { RateLimiterGuard } from 'nestjs-rate-limiter/dist/rate-limiter.guard';
 import { APP_GUARD } from '@nestjs/core/constants';
-import { RateLimiterModule } from 'nestjs-rate-limiter/dist/rate-limiter.module';
 import { ConfigAppModule } from './core/config-app/config-app.module';
 import winston from 'winston';
 import {
@@ -11,14 +9,33 @@ import {
   utilities as nestWinstonModuleUtilities,
 } from 'nest-winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
+import {  ThrottlerModule } from '@nestjs/throttler';
+import { ConfigService } from '@nestjs/config';
+import { CustomThrottlerGuard } from './core/guard/custom-throttler.guard';
 
 @Module({
   imports: [
     ConfigAppModule,
     CoreModule,
     AmpModule,
-    RateLimiterModule.register({
-      points: 1000,
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigAppModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        const isEnabled = configService.get<boolean>('RATE_LIMIT_ENABLED');
+        const ttl = configService.get<number>('RATE_LIMIT_TTL');
+        const limit = configService.get<number>('RATE_LIMIT_LIMIT');
+        
+        return {
+          throttlers: [
+            {
+              name: 'global',
+              ttl: ttl ?? 60000,
+              limit: isEnabled ? (limit ?? 100) : 1000000000,
+            },
+          ],
+        };
+      },
     }),
     WinstonModule.forRoot({
       transports: [
@@ -47,7 +64,7 @@ import DailyRotateFile from 'winston-daily-rotate-file';
   providers: [
     {
       provide: APP_GUARD,
-      useClass: RateLimiterGuard,
+      useClass: CustomThrottlerGuard,
     },
   ],
 })
