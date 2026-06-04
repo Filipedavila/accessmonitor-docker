@@ -107,9 +107,7 @@ function generateScore(report: any): string {
           value['elem'] === 'all' ||
           report.data['elems'][value['elem']] !== undefined
         ) {
-          // if (report.data["elems"][value["test"]] !== undefined) {
           calc = true;
-          // }
         }
         break;
       case 'prop':
@@ -121,9 +119,6 @@ function generateScore(report: any): string {
         }
         break;
     }
-    // if (value["test"] === "liNotSemantically")
-    //   console.log({ calc, value, elems: report.data["elems"] })
-
     if (calc) {
       let temp = null;
       if (ruleset[test]['type'] === 'prop') {
@@ -277,7 +272,7 @@ function parseEvaluation(evaluation: any): any {
   report['data'].tot.info.roles = evaluation.modules.counter.data.roles;
   report['data'].tot.info.cTags = evaluation.modules.counter.data.tags;
   report['data'].tot.info.size =
-    encodeURI(report.pagecode).split(/%..|./).length - 1;
+    encodeURI(evaluation.system.page.dom.html).split(/%..|./).length - 1;
   report['data'].tot.info.encoding = 'utf-8';
   report['data'].tot.info.lang = getHtmlLang(evaluation.system.page.dom.html);
   report['data'].tot.info.content = 'text/html';
