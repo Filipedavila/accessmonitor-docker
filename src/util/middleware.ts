@@ -78,12 +78,13 @@ function completeMissingReportElements(report: any): void {
   report.data.tot.elems = structuredClone(report.data.elems);
 }
 
-function generateScore(report: any): string {
+export function generateScore(report: any): string {
   let rel = 0;
   let pon = 0;
 
   for (const test in report.data.tot.results) {
     const value = ruleset[test];
+     if(!value) continue;
 
     if (value.result === 'warning') {
       continue;
@@ -133,8 +134,8 @@ function generateScore(report: any): string {
       const ss = temp['s'] * pp;
       rel += ss;
       pon += pp;
-
-      report.data.tot.results[test] = value['score'] + '@' + ss;
+      const formattedSs = Number(ss.toFixed(4));
+      report.data.tot.results[test] = value['score'] + '@' + formattedSs;
     }
   }
 
@@ -213,19 +214,22 @@ function getHtmlLang(html: string): string {
   return lang;
 }
 
-function calculateConform(results: any): string {
+export function calculateConform(results: any): string {
   const errors = {
     A: 0,
     AA: 0,
     AAA: 0,
   };
+  for (const ruleId of Object.keys(results)) {
+    const rule = ruleset[ruleId];
+    if (!rule || !rule.level) {
+      continue;
+    }
 
-  for (const ee in results || {}) {
-    if (ee) {
-      let level = ruleset[ee].level.toUpperCase();
-      if (testColors[ee] === 'R') {
-        errors[level]++;
-      }
+    const level = rule.level.toUpperCase();
+
+    if (level in errors && testColors[ruleId] === 'R') {
+      errors[level]++;
     }
   }
 
