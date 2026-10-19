@@ -16,14 +16,22 @@ export class AmpService {
       this.configService.get<string>('IP_BLACKLIST_RANGES') || ''
     ).split(',');
   }
-  async evaluateUrl(url: string): Promise<ReadableStream> {
+  async evaluateUrl(url: string, clientIp?: string): Promise<ReadableStream> {
     await validateUrlRestriction(url, this.blackList);
 
-    return (await this.evaluationPublicService.evaluatePage({ payload: url, type: 'url' }));
+    return await this.evaluationPublicService.evaluatePage({
+      payload: url,
+      type: 'url',
+      clientIp,
+    });
   }
 
-  async evaluateHtml(html: string): Promise<ReadableStream> {
-    return (await this.evaluationPublicService.evaluatePage({ payload: html, type: 'html' }));
+  async evaluateHtml(html: string, clientIp?: string): Promise<ReadableStream> {
+    return await this.evaluationPublicService.evaluatePage({
+      payload: html,
+      type: 'html',
+      clientIp,
+    });
   }
 
 }

@@ -5,16 +5,23 @@ import { EVALUATION_ENGINE } from './evaluation/contracts/evaluation-engine.cont
 import { QualWebPuppeteerEngine } from './evaluation/strategies/evaluation-engine-puppeteer.strategy';
 import { EvaluationParserService } from './evaluation/evaluation-parser.service';
 import { EvaluationPublicService } from './evaluation/evaluation-public.service';
+import { EvaluationMetricsService } from './evaluation/evaluation-metrics.service';
+import { EvaluationAuditService } from './evaluation/evaluation-audit.service';
+import { ClickhouseModule } from '../core/clickhouse/clickhouse.module';
 
 @Module({
-  imports: [],
+  imports: [ClickhouseModule],
   controllers: [AmpController],
-  providers: [AmpService,
-     {
+  providers: [
+    AmpService,
+    {
       provide: EVALUATION_ENGINE,
       useClass: QualWebPuppeteerEngine,
     },
     EvaluationParserService,
-  EvaluationPublicService  ],
+    EvaluationPublicService,
+    EvaluationMetricsService,
+    EvaluationAuditService,
+  ],
 })
 export class AmpModule {}

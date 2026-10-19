@@ -74,6 +74,15 @@ describe('AmpService', () => {
       expect(mockExecuteUrl).toHaveBeenCalledWith(rawUrl);
       expect(result).toEqual({ report: 'valid_report' });
     });
+
+    it('should forward the client IP to the evaluation public service', async () => {
+      mockValidateUrlRestriction.mockResolvedValue(undefined);
+      mockExecuteUrl.mockResolvedValue({ report: 'valid_report' });
+
+      await service.evaluateUrl(rawUrl, '203.0.113.10');
+
+      expect(mockExecuteUrl).toHaveBeenCalledWith(rawUrl);
+    });
   });
 
   describe('evaluateHtml', () => {

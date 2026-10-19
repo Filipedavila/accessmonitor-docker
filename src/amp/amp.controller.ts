@@ -10,6 +10,7 @@ import {
   StreamableFile,
   Header,
   BadRequestException,
+  Ip,
 } from '@nestjs/common';
 import { Readable } from 'stream';
 import { ReadableStream as WebReadableStream } from 'stream/web';
@@ -59,10 +60,11 @@ export class AmpController {
   async evaluateUrl(
     @Headers('referer') referer: string | undefined,
     @Param() params: UrlRequestDto,
+    @Ip() clientIp: string,
   ): Promise<StreamableFile> {
     this.validateReferer(referer);
 
-    const result = await this.ampService.evaluateUrl(params.url);
+    const result = await this.ampService.evaluateUrl(params.url, clientIp);
     return this.toStreamableFile(result);
   }
 
@@ -73,14 +75,16 @@ export class AmpController {
   @Header('Content-Encoding', 'gzip')
   async evaluateHtml(
     @Headers('referer') referer: string | undefined,
-    @Body('html') html: string,  ): Promise<StreamableFile> {
+    @Body('html') html: string,
+    @Ip() clientIp: string,
+  ): Promise<StreamableFile> {
     this.validateReferer(referer);
 
     if (!html || typeof html !== 'string') {
       throw new BadRequestException('Field "html" is required and must be a string');
     }
 
-    const result = await this.ampService.evaluateHtml(html);
+    const result = await this.ampService.evaluateHtml(html, clientIp);
     return this.toStreamableFile(result);
   }
 }
