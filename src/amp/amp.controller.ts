@@ -3,47 +3,84 @@ import {
   Get,
   Post,
   Param,
-  Request,
+  Body,
+  Headers,
   HttpCode,
   ForbiddenException,
+  StreamableFile,
+  Header,
+  BadRequestException,
 } from '@nestjs/common';
+import { Readable } from 'stream';
+import { ReadableStream as WebReadableStream } from 'stream/web';
 
-
-
-import { AmpContract, AmpDocs } from './amp.swagger';
+import {  AmpDocs } from './amp.swagger';
 import { UrlRequestDto } from './dto/url-request.dto';
 import { AmpService } from './amp.service';
 
 @AmpDocs.controller()
 @Controller('amp')
-export class AmpController implements AmpContract {
-  constructor(private readonly ampService: AmpService,
-  ) {}
+export class AmpController {
+  constructor(private readonly ampService: AmpService) {}
+
+  private validateReferer(referer?: string): void {
+    const allowedReferer = process.env.REFERER;
+    if (allowedReferer && !referer?.startsWith(allowedReferer)) {
+      throw new ForbiddenException('Forbidden');
+    }
+  }
+
+  private toStreamableFile(streamOrResult: unknown): StreamableFile {
+    // Caso o AmpService devolva { evaluation: ReadableStream | Readable }
+    const rawStream =
+      streamOrResult &&
+      typeof streamOrResult === 'object' &&
+      'evaluation' in streamOrResult
+        ? (streamOrResult as { evaluation: unknown }).evaluation
+        : streamOrResult;
+
+    if (rawStream instanceof Readable) {
+      return new StreamableFile(rawStream);
+    }
+
+    if (rawStream && typeof (rawStream as WebReadableStream).getReader === 'function') {
+      const nodeStream = Readable.fromWeb(rawStream as WebReadableStream);
+      return new StreamableFile(nodeStream);
+    }
+
+    throw new Error('Invalid stream returned from evaluation service');
+  }
 
   @AmpDocs.evaluateUrl()
   @Get('eval/:url')
   @HttpCode(200)
+  @Header('Content-Type', 'application/json; charset=utf-8')
+  @Header('Content-Encoding', 'gzip')
   async evaluateUrl(
-    @Request() req: any,
+    @Headers('referer') referer: string | undefined,
     @Param() params: UrlRequestDto,
-  ): Promise<any> {
-    if (process.env.REFERER) {
-      if (!req.headers.referer?.startsWith(process.env.REFERER)) {
-        throw new ForbiddenException('Forbidden');
-      }
-    }
-    return await this.ampService.evaluateUrl(params.url);
+  ): Promise<StreamableFile> {
+    this.validateReferer(referer);
+
+    const result = await this.ampService.evaluateUrl(params.url);
+    return this.toStreamableFile(result);
   }
 
   @AmpDocs.evaluateHtml()
   @Post('eval/html')
   @HttpCode(200)
-  async evaluateHtml(@Request() req: any): Promise<any> {
-    if (process.env.REFERER) {
-      if (!req.headers.referer?.startsWith(process.env.REFERER)) {
-        throw new ForbiddenException('Forbidden');
-      }
+  @Header('Content-Type', 'application/json; charset=utf-8')
+  @Header('Content-Encoding', 'gzip')
+  async evaluateHtml(
+    @Headers('referer') referer: string | undefined,
+    @Body('html') html: string,  ): Promise<StreamableFile> {
+    this.validateReferer(referer);
+
+    if (!html || typeof html !== 'string') {
+      throw new BadRequestException('Field "html" is required and must be a string');
     }
-    return await this.ampService.evaluateHtml(req.body.html);
+
+    const result = await this.ampService.evaluateHtml(html);
+    return this.toStreamableFile(result);
   }
 }

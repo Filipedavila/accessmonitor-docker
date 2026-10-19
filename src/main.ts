@@ -9,39 +9,41 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule,{cors: true});
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+    bodyParser: false,
+  });
+  const logger = app.get(WINSTON_MODULE_NEST_PROVIDER);
+  app.useLogger(logger);
+
   const configService = app.get(ConfigService);
   const originsRaw = configService.get<string>('ALLOWED_ORIGINS');
+  const allowedOrigins = originsRaw?.split(',').map((o) => o.trim()).filter(Boolean);
 
-  let corsOrigin: string[] | string | boolean;
-
-  if (originsRaw && originsRaw.trim() !== '') {
-    corsOrigin = originsRaw.split(',').map(origin => origin.trim());
-  } else {
-    corsOrigin =true; 
-    const logger = app.get(WINSTON_MODULE_NEST_PROVIDER);
-    logger.warn('SECURITY WARNING: ALLOWED_ORIGINS is not defined or empty. CORS is wide open (*).');
+  if (!allowedOrigins?.length) {
+    logger.warn('SECURITY WARNING: ALLOWED_ORIGINS is not defined or empty. CORS accepts any origin.');
   }
 
   app.enableCors({
-    origin: corsOrigin,
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS', 
+    origin: allowedOrigins?.length ? allowedOrigins : true,
+    methods: 'GET,HEAD,POST,OPTIONS',
   });
-  
-  app.use(
-    helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: [`'self'`],
-          styleSrc: [`'self'`, `'unsafe-inline'`],
-          imgSrc: [`'self'`, 'data:', 'validator.swagger.io'],
-          scriptSrc: [`'self'`, `https: 'unsafe-inline'`],
-        },
+
+  app.use(compression());
+  app.use(helmet()); 
+  app.use('/api', helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: [`'self'`],
+        styleSrc: [`'self'`, `'unsafe-inline'`],
+        imgSrc: [`'self'`, 'data:', 'validator.swagger.io'],
+        scriptSrc: [`'self'`, `'unsafe-inline'`],
       },
-    }),
-  );
+    },
+  }));
   app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ limit: '10mb', extended: true }));
+  app.use(express.urlencoded({ limit: '2mb', extended: true }));
+
   app.use(compression());
   app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
 
@@ -53,16 +55,12 @@ async function bootstrap() {
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-      forbidNonWhitelisted: true,
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
-    }),
-  );
+   app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,
+    transform: true,
+    forbidNonWhitelisted: true,
+  }));
+  app.enableShutdownHooks();
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();

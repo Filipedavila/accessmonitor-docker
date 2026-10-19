@@ -1,28 +1,29 @@
 import { Injectable } from '@nestjs/common';
-import {
-  executeHtmlEvaluation,
-  executeUrlEvaluation,
-} from '../util/middleware';
+import { ReadableStream } from 'stream/web';
+
 import { validateUrlRestriction } from '../common/util';
 
 import { ConfigService } from '@nestjs/config/dist/config.service';
+import { EvaluationPublicService } from './evaluation/evaluation-public.service';
 
 @Injectable()
 export class AmpService {
   private readonly blackList: string[];
-  constructor(private readonly configService: ConfigService) {
+  constructor(private readonly configService: ConfigService,
+    private readonly evaluationPublicService: EvaluationPublicService,
+  ) {
     this.blackList = (
       this.configService.get<string>('IP_BLACKLIST_RANGES') || ''
     ).split(',');
   }
-  async evaluateUrl(url: string): Promise<any> {
+  async evaluateUrl(url: string): Promise<ReadableStream> {
     await validateUrlRestriction(url, this.blackList);
 
-    return await executeUrlEvaluation(url);
+    return (await this.evaluationPublicService.evaluatePage({ payload: url, type: 'url' }));
   }
 
-  async evaluateHtml(html: string): Promise<any> {
-    return await executeHtmlEvaluation(html);
+  async evaluateHtml(html: string): Promise<ReadableStream> {
+    return (await this.evaluationPublicService.evaluatePage({ payload: html, type: 'html' }));
   }
 
 }
