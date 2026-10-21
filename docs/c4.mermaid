@@ -1,0 +1,19 @@
+graph TD
+    Trigger([Origem do Pedido / API Upstream]) -->|Payload HTTP / Stream| Worker[Stateless Worker Node.js]
+
+    subgraph StatelessWorker ["Worker de Processamento (Stateless)"]
+        Worker -->|Isola Execução| Chromium[Dedicated Chromium Engine]
+    end
+
+    subgraph Storage ["Camada de Destino"]
+        CH[(ClickHouse DB)]
+    end
+
+    subgraph Telemetry ["Observabilidade"]
+        Worker -->|Traces & Logs Detalhados| OTLP[OTel Collector]
+        OTLP --> CH
+    end
+
+
+    class StatelessWorker worker;
+    class Storage storage;

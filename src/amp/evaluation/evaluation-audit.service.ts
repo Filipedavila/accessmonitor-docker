@@ -47,13 +47,14 @@ export class EvaluationAuditService {
       payload_size_bytes: record.payloadSizeBytes,
       error_message: record.errorMessage ?? '',
     };
-
+/*
     await this.clickhouse.insert({
       table: TABLE_NAME,
       values: [row],
       format: 'JSONEachRow',
     });
-  }
+  }*/
+}
 
   private extractHostname(type: EvaluationMetricType, payload: string): string {
     if (type !== 'url') {

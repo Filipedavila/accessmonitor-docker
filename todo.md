@@ -1,0 +1,3 @@
+- remover error-log e interceptor para gravar este logs
+- criar black box testes para testar as funcionalidades e não o código.
+- acabar com any e typar bem e rever bem os contratos de fluxos de dados.
