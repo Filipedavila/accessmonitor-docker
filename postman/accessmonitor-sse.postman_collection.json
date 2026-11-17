@@ -1,0 +1,367 @@
+{
+  "info": {
+    "_postman_id": "13ddc125-636b-4524-a4a7-44d4831fc9a6",
+    "name": "AccessMonitor - SSE (manual)",
+    "description": "Requests for manually exploring evaluation via queue + SSE. See the environment variables: baseUrl, referer, testUrl.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "URL (GET /amp/eval/stream)",
+      "item": [
+        {
+          "name": "Stream OK",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Referer",
+                "value": "{{referer}}"
+              },
+              {
+                "key": "Accept",
+                "value": "text/event-stream"
+              }
+            ],
+            "description": "SSE: [queued] -> processing -> completed (AuditReport). The server closes the connection afterward. In Postman, also use 'New > Server-Sent Events' to view events in real time.",
+            "url": {
+              "raw": "{{baseUrl}}/amp/eval/stream?url={{testUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "amp",
+                "eval",
+                "stream"
+              ],
+              "query": [
+                {
+                  "key": "url",
+                  "value": "{{testUrl}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Invalid URL -> 400",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Referer",
+                "value": "{{referer}}"
+              },
+              {
+                "key": "Accept",
+                "value": "text/event-stream"
+              }
+            ],
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/amp/eval/stream?url=nope",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "amp",
+                "eval",
+                "stream"
+              ],
+              "query": [
+                {
+                  "key": "url",
+                  "value": "nope"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Missing URL -> 400",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Referer",
+                "value": "{{referer}}"
+              },
+              {
+                "key": "Accept",
+                "value": "text/event-stream"
+              }
+            ],
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/amp/eval/stream",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "amp",
+                "eval",
+                "stream"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Restricted URL (SSRF) -> 4xx",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Referer",
+                "value": "{{referer}}"
+              },
+              {
+                "key": "Accept",
+                "value": "text/event-stream"
+              }
+            ],
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/amp/eval/stream?url=http://127.0.0.1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "amp",
+                "eval",
+                "stream"
+              ],
+              "query": [
+                {
+                  "key": "url",
+                  "value": "http://127.0.0.1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Invalid Referer -> 403",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Referer",
+                "value": "https://referer-invalido.example"
+              },
+              {
+                "key": "Accept",
+                "value": "text/event-stream"
+              }
+            ],
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/amp/eval/stream?url={{testUrl}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "amp",
+                "eval",
+                "stream"
+              ],
+              "query": [
+                {
+                  "key": "url",
+                  "value": "{{testUrl}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "HTML (POST /amp/eval/html)",
+      "item": [
+        {
+          "name": "Stream OK",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Referer",
+                "value": "{{referer}}"
+              },
+              {
+                "key": "Accept",
+                "value": "text/event-stream"
+              }
+            ],
+            "description": "Consume with fetch streaming; EventSource only supports GET.",
+            "url": {
+              "raw": "{{baseUrl}}/amp/eval/html",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "amp",
+                "eval",
+                "html"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"html\": \"<!DOCTYPE html><html lang=\\\"pt\\\"><head><meta charset=\\\"utf-8\\\"><title>E2E</title></head><body><main><h1>E2E</h1><img src=\\\"a.png\\\"></main></body></html>\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Missing HTML -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Referer",
+                "value": "{{referer}}"
+              },
+              {
+                "key": "Accept",
+                "value": "text/event-stream"
+              }
+            ],
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/amp/eval/html",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "amp",
+                "eval",
+                "html"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "File (POST /amp/eval/file)",
+      "item": [
+        {
+          "name": "Stream OK (.html)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Referer",
+                "value": "{{referer}}"
+              }
+            ],
+            "description": "Select an .html file in the 'file' field. In the CLI, use --working-dir postman to resolve fixtures/.",
+            "url": {
+              "raw": "{{baseUrl}}/amp/eval/file",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "amp",
+                "eval",
+                "file"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "fixtures/sample.html"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": ".txt file -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Referer",
+                "value": "{{referer}}"
+              }
+            ],
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/amp/eval/file",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "amp",
+                "eval",
+                "file"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "fixtures/not-html.txt"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "No file -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Referer",
+                "value": "{{referer}}"
+              }
+            ],
+            "description": "",
+            "url": {
+              "raw": "{{baseUrl}}/amp/eval/file",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "amp",
+                "eval",
+                "file"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": []
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

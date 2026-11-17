@@ -1,18 +1,34 @@
 {
-  "moduleFileExtensions": ["js", "json", "ts"],
+  "moduleFileExtensions": [
+    "js",
+    "json",
+    "ts"
+  ],
   "rootDir": ".",
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "transform": {
-    "^.+\\.(t|j)s$": "ts-jest"
+    "^.+\\.(t|j)s$": [
+      "@swc/jest",
+      {
+        "jsc": {
+          "parser": {
+            "syntax": "typescript",
+            "decorators": true
+          },
+          "transform": {
+            "legacyDecorator": true,
+            "decoratorMetadata": true
+          }
+        }
+      }
+    ]
   },
+  "transformIgnorePatterns": [
+    "/node_modules/(?!uuid)/"
+  ],
   "moduleNameMapper": {
     "^src/(.*)$": "<rootDir>/../src/$1"
   },
-  "transformIgnorePatterns": [
-    "node_modules/(?!(htmlparser2|css-select|domhandler|entities|domelementtype|domutils|dom-serializer|boolbase|nth-check|css-what)/)"  ],
-  "globals": {
-    "Translator": {},
-    "window": {}
-  }
+  "maxWorkers": 1
 }
