@@ -1,90 +1,82 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AmpService } from './amp.service';
 import { ConfigService } from '@nestjs/config';
-import {
-  executeUrlEvaluation,
-  executeHtmlEvaluation,
-} from 'src/util/middleware';
-import { validateUrlRestriction } from '../common/util'; 
+import { of } from 'rxjs';
+import { AmpService } from './amp.service';
+import { EvaluationPublicService } from './evaluation/evaluation-public.service';
+import { EvaluationStreamService } from './evaluation/evaluation-stream.service';
+import { validateUrlRestriction } from '../common/util';
 import { RestrictedNetworkException } from '../common/restricted-network.exception';
+import { HtmlFileDto } from './dto/html-file.dto';
 
-jest.mock('src/util/middleware', () => ({
-  executeUrlEvaluation: jest.fn(),
-  executeHtmlEvaluation: jest.fn(),
-}));
-
-jest.mock('../common/util', () => ({
-  validateUrlRestriction: jest.fn(),
-}));
-
-const mockExecuteUrl = jest.mocked(executeUrlEvaluation);
-const mockExecuteHtml = jest.mocked(executeHtmlEvaluation);
-const mockValidateUrlRestriction = jest.mocked(validateUrlRestriction);
+jest.mock('../common/util', () => ({ validateUrlRestriction: jest.fn() }));
+const mockValidate = jest.mocked(validateUrlRestriction);
 
 describe('AmpService', () => {
   let service: AmpService;
-
-  const mockConfigService = {
-    get: jest.fn().mockReturnValue('127.0.0.1,10.0.0.0/8'),
-  };
+  const stream$ = of({ type: 'completed', data: {} });
+  const streamEvaluation = jest.fn();
+  const signal = new AbortController().signal;
 
   beforeEach(async () => {
+    jest.resetAllMocks();
+    streamEvaluation.mockReturnValue(stream$);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AmpService,
         {
           provide: ConfigService,
-          useValue: mockConfigService,
+          useValue: { get: jest.fn().mockReturnValue('127.0.0.1,10.0.0.0/8') },
         },
+        { provide: EvaluationPublicService, useValue: {} },
+        { provide: EvaluationStreamService, useValue: { streamEvaluation } },
       ],
     }).compile();
-
-    service = module.get<AmpService>(AmpService);
-    jest.clearAllMocks();
+    service = module.get(AmpService);
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
-
-  describe('evaluateUrl', () => {
-    const rawUrl = 'https://example.com/path';
-    const expectedBlacklist = ['127.0.0.1', '10.0.0.0/8'];
-
-    it('should propagate the exception if validateUrlRestriction detects a restricted network', async () => {
-
-      mockValidateUrlRestriction.mockRejectedValue(new RestrictedNetworkException());
-
-      const promise = service.evaluateUrl(rawUrl);
-
-      await expect(promise).rejects.toThrow(RestrictedNetworkException);
-      
-      expect(mockExecuteUrl).not.toHaveBeenCalled();
-      expect(mockValidateUrlRestriction).toHaveBeenCalledWith(rawUrl, expectedBlacklist);
+  describe('validateUrl', () => {
+    it('checks the URL against the configured blacklist', async () => {
+      mockValidate.mockResolvedValue(undefined);
+      await service.validateUrl('https://example.com');
+      expect(mockValidate).toHaveBeenCalledWith('https://example.com', ['127.0.0.1', '10.0.0.0/8']);
     });
 
-    it('should return evaluation report if validateUrlRestriction allows the URL', async () => {
-      mockValidateUrlRestriction.mockResolvedValue(undefined);
-
-      mockExecuteUrl.mockResolvedValue({ report: 'valid_report' });
-
-      const result = await service.evaluateUrl(rawUrl);
-
-      expect(mockValidateUrlRestriction).toHaveBeenCalledWith(rawUrl, expectedBlacklist);
-      expect(mockExecuteUrl).toHaveBeenCalledWith(rawUrl);
-      expect(result).toEqual({ report: 'valid_report' });
+    it('propagates restricted network errors', async () => {
+      mockValidate.mockRejectedValue(new RestrictedNetworkException());
+      await expect(service.validateUrl('http://127.0.0.1')).rejects.toThrow(
+        RestrictedNetworkException,
+      );
     });
   });
 
-  describe('evaluateHtml', () => {
-    it('should proxy the call directly to executeHtmlEvaluation', async () => {
-      const mockHtml = '<html><body>Test</body></html>';
-      mockExecuteHtml.mockResolvedValue({ score: 95 });
+  describe('streams', () => {
+    it('streamUrlEvaluation submits a url evaluation', () => {
+      const ctx = { clientIp: '1.1.1.1' };
+      expect(service.streamUrlEvaluation('https://a.pt', signal, ctx)).toBe(stream$);
+      expect(streamEvaluation).toHaveBeenCalledWith(
+        { payload: 'https://a.pt', type: 'url' },
+        signal,
+        ctx,
+      );
+    });
 
-      const result = await service.evaluateHtml(mockHtml);
+    it('streamHtmlEvaluation submits an html evaluation', () => {
+      expect(service.streamHtmlEvaluation('<p>x</p>', signal)).toBe(stream$);
+      expect(streamEvaluation).toHaveBeenCalledWith(
+        { payload: '<p>x</p>', type: 'html' },
+        signal,
+        undefined,
+      );
+    });
 
-      expect(mockExecuteHtml).toHaveBeenCalledWith(mockHtml);
-      expect(result).toEqual({ score: 95 });
+    it('streamHtmlFileEvaluation decodes the buffer and strips the UTF-8 BOM', () => {
+      const file = { buffer: Buffer.from('﻿<html>é</html>', 'utf-8') } as HtmlFileDto;
+      service.streamHtmlFileEvaluation(file, signal);
+      expect(streamEvaluation).toHaveBeenCalledWith(
+        { payload: '<html>é</html>', type: 'html' },
+        signal,
+        undefined,
+      );
     });
   });
 });

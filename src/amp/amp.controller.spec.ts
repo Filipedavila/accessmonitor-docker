@@ -1,121 +1,91 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { of } from 'rxjs';
 import { AmpController } from './amp.controller';
 import { AmpService } from './amp.service';
-import { UrlRequestDto } from './dto/url-request.dto';
-import { ForbiddenException } from '@nestjs/common/exceptions/forbidden.exception';
-jest.mock('@qualweb/core', () => {
-  return {
-    QualWeb: jest.fn().mockImplementation(() => ({
-      evaluate: jest.fn().mockResolvedValue({}),
-    })),
-  };
-});
-jest.mock('../util/qualweb', () => ({
-  qualweb: {
-    evaluate: jest.fn(),
-  },
-}));
+import { HtmlFileDto } from './dto/html-file.dto';
+import { InvalidUrlException } from '../common/invalid-url.exception';
+
 describe('AmpController', () => {
   let controller: AmpController;
-  let service: AmpService;
+  const stream$ = of({ type: 'completed', data: {} });
+  const signal = new AbortController().signal;
+
   const mockAmpService = {
-    evaluateUrl: jest.fn(),
-    evaluateHtml: jest.fn(),
+    validateUrl: jest.fn(),
+    streamUrlEvaluation: jest.fn(),
+    streamHtmlEvaluation: jest.fn(),
+    streamHtmlFileEvaluation: jest.fn(),
   };
+
   beforeEach(async () => {
+    jest.resetAllMocks();
+    mockAmpService.streamUrlEvaluation.mockReturnValue(stream$);
+    mockAmpService.streamHtmlEvaluation.mockReturnValue(stream$);
+    mockAmpService.streamHtmlFileEvaluation.mockReturnValue(stream$);
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AmpController],
-      providers: [
-        {
-          provide: AmpService,
-          useValue: mockAmpService,
-        },
-      ],
+      providers: [{ provide: AmpService, useValue: mockAmpService }],
     }).compile();
-
-    controller = module.get<AmpController>(AmpController);
-    service = module.get<AmpService>(AmpService);
-
-    jest.clearAllMocks();
-    delete process.env.REFERER;
+    controller = module.get(AmpController);
   });
 
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
-  });
+  describe('streamEvaluation (GET /amp/eval/stream)', () => {
+    it('validates the URL before opening the stream and passes signal + ip', async () => {
+      mockAmpService.validateUrl.mockResolvedValue(undefined);
 
-  describe('evaluateUrl', () => {
-    const mockParams: UrlRequestDto = { url: 'https://example.com' };
+      const result = await controller.streamEvaluation(
+        { url: 'https://example.com' },
+        signal,
+        '1.2.3.4',
+      );
 
-    it('should return 403 if REFERER env is set and request header does not match', async () => {
-      process.env.REFERER = 'https://trusted.com';
-      const mockReq = { headers: { referer: 'https://attacker.com' } };
-
-      await expect(controller.evaluateUrl(mockReq, mockParams)).rejects.toThrow(ForbiddenException);
-      expect(service.evaluateUrl).not.toHaveBeenCalled();
+      expect(mockAmpService.validateUrl).toHaveBeenCalledWith('https://example.com');
+      expect(mockAmpService.streamUrlEvaluation).toHaveBeenCalledWith(
+        'https://example.com',
+        signal,
+        {
+          clientIp: '1.2.3.4',
+        },
+      );
+      expect(result).toBe(stream$);
     });
 
-    it('should call service.evaluateUrl if REFERER env matches', async () => {
-      process.env.REFERER = 'https://trusted.com';
-      const mockReq = { headers: { referer: 'https://trusted.com/dashboard' } };
-      const mockUrlDto: UrlRequestDto = { url: 'https://example.com' };
-      mockAmpService.evaluateUrl.mockResolvedValue({ success: true });
+    it('propagates validation errors as HTTP errors and never starts the stream', async () => {
+      mockAmpService.validateUrl.mockRejectedValue(new InvalidUrlException());
 
-      const result = await controller.evaluateUrl(mockReq, mockUrlDto);
-
-      expect(service.evaluateUrl).toHaveBeenCalledWith(mockUrlDto.url);
-      expect(result).toEqual({ success: true });
-    });
-
-    it('should call service.evaluateUrl directly if REFERER env is not configured', async () => {
-      const mockReq = { headers: {} };
-      const mockUrlDto: UrlRequestDto = { url: 'https://example.com' };
-
-      mockAmpService.evaluateUrl.mockResolvedValue({ success: true });
-
-      const result = await controller.evaluateUrl(mockReq, mockUrlDto);
-
-      expect(service.evaluateUrl).toHaveBeenCalledWith(mockUrlDto.url);
-      expect(result).toEqual({ success: true });
+      await expect(controller.streamEvaluation({ url: 'nope' }, signal, 'ip')).rejects.toThrow(
+        InvalidUrlException,
+      );
+      expect(mockAmpService.streamUrlEvaluation).not.toHaveBeenCalled();
     });
   });
 
-  describe('evaluateHtml', () => {
-    const mockReqBody = { body: { html: '<h1>Test</h1>' }, headers: {} };
-
-    it('should throw ForbiddenException if REFERER env is set and request header does not match', async () => {
-      process.env.REFERER = 'https://trusted.com';
-      const mockReq = {
-        body: { html: '<h1>Test</h1>' },
-        headers: { referer: 'https://attacker.com' },
-      };
-
-      await expect(controller.evaluateHtml(mockReq)).rejects.toThrow(ForbiddenException);
-      expect(service.evaluateHtml).not.toHaveBeenCalled();
+  describe('streamHtmlEvaluation (POST /amp/eval/html)', () => {
+    it('delegates html to the service', () => {
+      const result = controller.streamHtmlEvaluation('<h1>x</h1>', signal, 'ip');
+      expect(mockAmpService.streamHtmlEvaluation).toHaveBeenCalledWith('<h1>x</h1>', signal, {
+        clientIp: 'ip',
+      });
+      expect(result).toBe(stream$);
     });
 
-    it('should call service.evaluateHtml if REFERER env matches', async () => {
-      process.env.REFERER = 'https://trusted.com';
-      const mockReq = {
-        body: { html: '<h1>Test</h1>' },
-        headers: { referer: 'https://trusted.com/dashboard' },
-      };
-      mockAmpService.evaluateHtml.mockResolvedValue({ score: 100 });
-
-      const result = await controller.evaluateHtml(mockReq);
-
-      expect(service.evaluateHtml).toHaveBeenCalledWith('<h1>Test</h1>');
-      expect(result).toEqual({ score: 100 });
+    it.each([undefined, '', 42, {}])('rejects invalid html (%p) with 400', (html) => {
+      expect(() => controller.streamHtmlEvaluation(html as never, signal, 'ip')).toThrow(
+        BadRequestException,
+      );
+      expect(mockAmpService.streamHtmlEvaluation).not.toHaveBeenCalled();
     });
+  });
 
-    it('should call service.evaluateHtml directly if REFERER env is not configured', async () => {
-      const mockReq = { body: { html: '<h1>Test</h1>' }, headers: {} };
-      mockAmpService.evaluateHtml.mockResolvedValue({ score: 100 });
-
-      const result = await controller.evaluateHtml(mockReq);
-
-      expect(service.evaluateHtml).toHaveBeenCalledWith('<h1>Test</h1>');
-      expect(result).toEqual({ score: 100 });
+  describe('streamHtmlFileEvaluation (POST /amp/eval/file)', () => {
+    it('delegates the uploaded file to the service', () => {
+      const file = { buffer: Buffer.from('<html></html>') } as HtmlFileDto;
+      const result = controller.streamHtmlFileEvaluation(file, signal, 'ip');
+      expect(mockAmpService.streamHtmlFileEvaluation).toHaveBeenCalledWith(file, signal, {
+        clientIp: 'ip',
+      });
+      expect(result).toBe(stream$);
     });
   });
 });
