@@ -16,6 +16,7 @@ describe('ResponseTransformInterceptor', () => {
     };
 
     mockExecutionContext = {
+      getHandler: jest.fn().mockReturnValue(function plainHandler() {}),
       switchToHttp: jest.fn().mockReturnValue({
         getResponse: jest.fn().mockReturnValue(mockResponse),
       }),
@@ -110,6 +111,22 @@ describe('ResponseTransformInterceptor', () => {
           expect(result.pagination).toEqual({
             total: 50,
           });
+          done();
+        },
+      });
+  });
+
+  it('should not wrap events emitted by SSE handlers', (done) => {
+    const event = { type: 'queued', data: { status: 'waiting' } };
+    const sseHandler = function sseHandler() {};
+    Reflect.defineMetadata('__sse__', true, sseHandler);
+    (mockExecutionContext.getHandler as jest.Mock).mockReturnValue(sseHandler);
+    mockCallHandler = { handle: () => of(event) };
+
+    interceptor.intercept(mockExecutionContext as ExecutionContext, mockCallHandler as CallHandler)
+      .subscribe({
+        next: (result) => {
+          expect(result).toBe(event);
           done();
         },
       });

@@ -16,9 +16,10 @@ import Joi from 'joi';
         RATE_LIMIT_ENABLED: Joi.boolean().default(true),
         RATE_LIMIT_TTL: Joi.number().integer().min(1000).default(60000), 
         RATE_LIMIT_LIMIT: Joi.number().integer().min(1).default(1000),
-      }),
+        QUALWEB_MAX_CONCURRENCY: Joi.number().integer().min(1).default(3),
+         }),
     }),
-  ],
-  exports: [ConfigModule],
-})
+    ],
+    exports: [ConfigModule],
+  })
 export class ConfigAppModule {}
