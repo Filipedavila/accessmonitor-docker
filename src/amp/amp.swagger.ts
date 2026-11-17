@@ -37,8 +37,4 @@ export const AmpDocs = {
       }),
     ),
 };
-export interface AmpContract {
-  evaluateUrl: (req: Request, url: UrlRequestDto) => Promise<object>;
-  evaluateHtml: (req: Request) => Promise<object>;
-}
 
