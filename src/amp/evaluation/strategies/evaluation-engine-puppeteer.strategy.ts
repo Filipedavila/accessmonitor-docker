@@ -1,5 +1,6 @@
 import { QualWeb, QualwebOptions, PuppeteerFingerprintDriver } from '@qualweb/core';
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ACTRules } from '@qualweb/act-rules';
 import { WCAGTechniques } from '@qualweb/wcag-techniques';
 import { BestPractices } from '@qualweb/best-practices';
@@ -9,10 +10,6 @@ import { EvaluateOptions, EvaluationEngine, EvaluationType } from '../contracts/
 import { createLogger } from 'winston';
 import { EvaluationAbortedError, EvaluationTimeoutError } from '../evaluation.errors';
 
-const driver = new PuppeteerFingerprintDriver({
-  useCluster: false,
-  launchOptions: { headless: true, args: ['--disable-blink-features=AutomationControlled'] },
-});
 const QUALWEB_START_TIMEOUT = 30_000;
 export const EVALUATION_TIMEOUT_MS = 35_000;
 
@@ -56,6 +53,18 @@ const normalizeUrl = (s: string) => s.replace(/\/$/, '');
 @Injectable()
 export class QualWebPuppeteerEngine implements EvaluationEngine {
   private readonly logger = createLogger({ defaultMeta: { service: QualWebPuppeteerEngine.name } });
+  private readonly driver: PuppeteerFingerprintDriver;
+
+  constructor(private readonly configService: ConfigService) {
+    // QUALWEB_CHROME_URL (ws://host:port): remote browser such as browserless.
+    // If empty, QualWeb launches a local Chromium.
+    const chromeUrl = this.configService.get<string>('QUALWEB_CHROME_URL');
+    this.driver = new PuppeteerFingerprintDriver({
+      useCluster: false,
+      launchOptions: { headless: true, args: ['--disable-blink-features=AutomationControlled'] },
+      ...(chromeUrl ? { chromeUrl } : {}),
+    });
+  }
 
   private createModules(): any[] {
     return [
@@ -127,7 +136,7 @@ export class QualWebPuppeteerEngine implements EvaluationEngine {
 
     if (signal?.aborted) throw new EvaluationAbortedError();
 
-    const qualweb = new QualWeb(undefined, driver);
+    const qualweb = new QualWeb(undefined, this.driver);
     let stopped: Promise<void> | undefined;
     // Idempotente: fecha o browser (e portanto todas as páginas) uma única vez.
     const stopBrowser = (): Promise<void> => {
